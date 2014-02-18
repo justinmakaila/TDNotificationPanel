@@ -128,18 +128,21 @@ static const CGFloat kSubtitleFontSize = 12.f;
                                               subtitle:subtitle
                                                   type:type
                                                   mode:mode
+                                    showUnderStatusBar:NO
                                            dismissible:dismissible
                                           dismissBlock:nil
                                         hideAfterDelay:delay
                                      completionHandler:completionHandler];
 }
 
-+ (instancetype)showNotificationInView:(UIView*)view title:(NSString*)title subtitle:(NSString*)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible dismissBlock:(void (^)())dismissBlock hideAfterDelay:(NSTimeInterval)delay completionHandler:(void (^)())completionHandler {
++ (instancetype)showNotificationInView:(UIView*)view title:(NSString*)title subtitle:(NSString*)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode showUnderStatusBar:(BOOL)underStatusBar dismissible:(BOOL)dismissible dismissBlock:(void (^)())dismissBlock hideAfterDelay:(NSTimeInterval)delay completionHandler:(void (^)())completionHandler {
     TDNotificationPanel *panel = [[TDNotificationPanel alloc] initWithView:view
                                                                      title:title
                                                                   subtitle:subtitle
                                                                       type:type
                                                                       mode:mode
+                                                                  location:TDNotificationLocationTopAboveNavigationBar
+                                                        showUnderStatusBar:underStatusBar
                                                                dismissible:dismissible];
     panel.notificationDuration = delay;
     
@@ -191,7 +194,7 @@ static const CGFloat kSubtitleFontSize = 12.f;
 
 #pragma mark - Initializers
 
-- (instancetype)initWithView:(UIView *)view title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible {
+- (instancetype)initWithView:(UIView *)view title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode location:(TDNotificationLocation)location showUnderStatusBar:(BOOL)underStatusBar dismissible:(BOOL)dismissible {
     self = [super initWithFrame:view.bounds];
     if (self) {
         _titleText = title;
@@ -202,19 +205,23 @@ static const CGFloat kSubtitleFontSize = 12.f;
         
         _notificationType = (mode == TDNotificationModeText) ? type : TDNotificationTypeMessage;
         _notificationMode = mode;
+        _notificationLocation = location;
         
         _notificationDuration = 0;
         
         _dismissible = dismissible;
+        _showUnderStatusBar = underStatusBar;
         
         _progress = 0;
         
         [self setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
-        [self setOpaque:NO];
+        [self setOpaque:YES];
         [self setBackgroundColor:[UIColor clearColor]];
         [self setAlpha:0];
         
-        // TODO: Gesture recognition on swipe up
+        if (_dismissible) {
+            [self setupGestureRecognizers];
+        }
         
         [self setupElements];
         [self registerForKVO];
@@ -237,6 +244,16 @@ static const CGFloat kSubtitleFontSize = 12.f;
 }
 
 #pragma mark - Setup
+
+- (void)setupGestureRecognizers {
+    UISwipeGestureRecognizer *swipeRecognizer = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(dismissNotification:)];
+    swipeRecognizer.direction = (self.locationTop) ? UISwipeGestureRecognizerDirectionUp : UISwipeGestureRecognizerDirectionDown;
+    [self addGestureRecognizer:swipeRecognizer];
+    
+    UITapGestureRecognizer *tapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(followNotification:)];
+    tapRecognizer.numberOfTouchesRequired = 1;
+    [self addGestureRecognizer:tapRecognizer];
+}
 
 - (void)setupElements {
     _title = [[UILabel alloc] initWithFrame:CGRectZero];
@@ -297,8 +314,8 @@ static const CGFloat kSubtitleFontSize = 12.f;
         bottomBorder = [UIColor colorWithRed:0.192 green:0.390 blue:0 alpha:1];
         [_icon setImage:[UIImage imageNamed:@"successIcon"]];
     }else if (_notificationType == TDNotificationTypeActivity) {
-        backgroundColor = [UIColor colorWithWhite:0.0f alpha:1.0f];
-        bottomBorder = [UIColor greenColor];
+        backgroundColor = [UIColor colorWithWhite:0.07f alpha:1.0f];
+        bottomBorder = [UIColor blackColor];
         // TODO: Custom images (profile pictures? still frames? icon?)
         [_icon setImage:[UIImage imageNamed:@"infoIcon"]];
     }
@@ -332,15 +349,14 @@ static const CGFloat kSubtitleFontSize = 12.f;
     self.frame = CGRectMake(0, -_totalSize.height, _totalSize.width, _totalSize.height);
     
     CGFloat verticalOffset = 0;
-    if ([[self superview] isKindOfClass:NSClassFromString(@"UIWindow")]) {
-        // When displaying in a UIWindow position the notification under the status bar.
-        if (![UIApplication sharedApplication].statusBarHidden) {
-            verticalOffset = [UIApplication sharedApplication].statusBarFrame.size.height;
-        }
+    if (_showUnderStatusBar) {
+        verticalOffset = CGRectGetHeight([UIApplication sharedApplication].statusBarFrame);
     }
     
-    NSLog(@"Vertical offset = %f", verticalOffset);
-    NSLog(@"(%f, %f) %f x %f", CGRectGetMinX(self.frame), CGRectGetMinY(self.frame), CGRectGetWidth(self.frame), CGRectGetHeight(self.frame));
+    if (_notificationLocation == TDNotificationLocationTopUnderNavigationBar) {
+        // !!!: This is fucked
+        verticalOffset += 64;
+    }
     
     if (_notificationMode == TDNotificationModeActivityIndicator) {
         [_indicator startAnimating];
@@ -416,11 +432,17 @@ static const CGFloat kSubtitleFontSize = 12.f;
 
 #pragma mark - Handling Touch
 
-- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
-    if (!_dismissible) {
-        return;
+- (void)followNotification:(id)sender {
+    [NSObject cancelPreviousPerformRequestsWithTarget:self];
+    
+    if (self.touchBlock) {
+        self.touchBlock();
     }
     
+    [self hide];
+}
+
+- (void)dismissNotification:(id)sender {
     [NSObject cancelPreviousPerformRequestsWithTarget:self];
     
     if (self.dismissBlock) {
@@ -431,6 +453,10 @@ static const CGFloat kSubtitleFontSize = 12.f;
 }
 
 #pragma mark - Layout
+
+- (BOOL)locationTop {
+    return (_notificationLocation == TDNotificationLocationTop || _notificationLocation == TDNotificationLocationTopAboveNavigationBar || _notificationLocation == TDNotificationLocationTopUnderNavigationBar);
+}
 
 - (void)positionElements {
     // Determine the total width of the notification.

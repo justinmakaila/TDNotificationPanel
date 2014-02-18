@@ -26,17 +26,27 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-typedef enum {
+typedef NS_ENUM(NSInteger, TDNotificationMode) {
     TDNotificationModeActivityIndicator,
     TDNotificationModeProgressBar,
     TDNotificationModeText
-} TDNotificationMode;
+};
 
-typedef enum {
+typedef NS_ENUM(NSInteger, TDNotificationType) {
     TDNotificationTypeError,
     TDNotificationTypeMessage,
     TDNotificationTypeSuccess,
-} TDNotificationType;
+    TDNotificationTypeActivity
+};
+
+typedef NS_ENUM(NSInteger, TDNotificationLocation) {
+    TDNotificationLocationTop,
+    TDNotificationLocationTopUnderNavigationBar,
+    TDNotificationLocationTopAboveNavigationBar,
+    TDNotificationLocationBottom,
+    TDNotificationLocationBottomUnderToolbar,
+    TDNotificationLocationBottomAboveToolbar
+};
 
 /** 
  * Displays a simple notification which can contain a title, subtitle, icon, progress bar or activity indicator.
@@ -59,6 +69,17 @@ typedef enum {
  * @see TDNotificationMode
  */
 @property (nonatomic, assign) TDNotificationMode notificationMode;
+
+/**
+ *  The location for the notification to appear on the screen, relative to the view(controller) provided
+ *
+ *  @see TDNotificationLocation
+ */
+@property (nonatomic, assign) TDNotificationLocation notificationLocation;
+
+// TODO: Which one works better?
+// @property (nonatomic, strong) UIImage *backgroundImage;
+// @property (nonatomic, strong) UIImageView *backgroundImageView;
 
 /**
  * A short message to be displayed. If the text is too long it will get clipped by displaying "..." at the end. If set to nil no title is displayed.
@@ -86,9 +107,14 @@ typedef enum {
 @property (nonatomic, assign) NSTimeInterval notificationDuration;
 
 /**
- * The completion handler to call when the notification is dismissed.
+ * The completion handler to call when the notification duration expires
  */
 @property (nonatomic, copy) void(^completionHandler)();
+
+/**
+ *  The block to be called when the notification is dismissed by the user
+ */
+@property (nonatomic, copy) void(^dismissBlock)();
 
 /**
  * The progress of the progress bar, from 0.0 to 1.0. Defaults to 0.0.
@@ -101,6 +127,8 @@ typedef enum {
  * YES notification will be dismissible when tapped, NO notification will not be dismissible when tapped.
  */
 @property (nonatomic, assign, getter = isDismissible) BOOL dismissible;
+
+// TODO: Replace all instances of "InView:(UIView*)view" with "InViewController:(UIViewController*)viewController"
 
 /**
  * Initializes a new notification, adds it to the provided view then displays it.
@@ -117,7 +145,10 @@ typedef enum {
  * @see TDNotificationType
  * @see TDNotificationMode
  */
-+ (instancetype)showNotificationInView:(UIView *)view title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible;
++ (instancetype)showNotificationInView:(UIView *)view title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible __attribute__((deprecated));
+
++ (instancetype)showNotificationInViewController:(UIViewController*)viewController title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible;
+
 
 /**
  * Initializes a new notification, adds it to the provided view then displays it, then calls a handler upon completion.
@@ -135,7 +166,9 @@ typedef enum {
  * @see TDNotificationType
  * @see TDNotificationMode
  */
-+ (instancetype)showNotificationInView:(UIView *)view title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible completionHandler:(void (^)())completionHandler;
++ (instancetype)showNotificationInView:(UIView *)view title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible completionHandler:(void (^)())completionHandler __attribute__((deprecated));
+
++ (instancetype)showNotificationInViewController:(UIViewController *)viewController title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible completionHandler:(void (^)())completionHandler;
 
 /**
  * Initializes a new notification, adds it to the provided view, shows it and then removes it after the delay given.
@@ -153,7 +186,11 @@ typedef enum {
  * @see TDNotificationType
  * @see TDNotificationMode
  */
-+ (instancetype)showNotificationInView:(UIView *)view title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible hideAfterDelay:(NSTimeInterval)delay;
++ (instancetype)showNotificationInView:(UIView *)view title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible hideAfterDelay:(NSTimeInterval)delay __attribute__((deprecated));
+
++ (instancetype)showNotificationInViewController:(UIViewController *)view title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible hideAfterDelay:(NSTimeInterval)delay;
+
+
 
 /**
  * Initializes a new notification, adds it to the provided view, shows it, removes it after the delay given, then calls a handler upon completion.
@@ -172,7 +209,10 @@ typedef enum {
  * @see TDNotificationType
  * @see TDNotificationMode
  */
-+ (instancetype)showNotificationInView:(UIView *)view title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible hideAfterDelay:(NSTimeInterval)delay completionHandler:(void (^)())completionHandler;
++ (instancetype)showNotificationInView:(UIView *)view title:(NSString *)title subtitle:(NSString *)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible hideAfterDelay:(NSTimeInterval)delay completionHandler:(void (^)())completionHandler __attribute__((deprecated));
+
+#warning !FIX! Undocumented
++ (instancetype)showNotificationInView:(UIView*)view title:(NSString*)title subtitle:(NSString*)subtitle type:(TDNotificationType)type mode:(TDNotificationMode)mode dismissible:(BOOL)dismissible dismissBlock:(void (^)())dismissBlock hideAfterDelay:(NSTimeInterval)delay completionHandler:(void (^)())completionHandler;
 
 /**
  * Hides the top-most notification in the view provided.
